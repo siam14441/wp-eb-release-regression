@@ -1,7 +1,7 @@
 # Probes — proven verification snippets
 
-Copy-pasteable and already used in real runs. Prefer these over clicking: synthetic clicks no-op on
-Gutenberg controls and Interactivity API elements.
+Copy-pasteable and already used in real runs, except sections marked *draft*. Prefer these over clicking:
+synthetic clicks no-op on Gutenberg controls and Interactivity API elements.
 
 Browser snippets go inside one `browser_evaluate` call. Always wait for `wp` to exist first.
 
@@ -434,6 +434,209 @@ async (page) => {
 git -C "$FREE" diff --stat "$PREV_TAG" "origin/$RELEASE" -- src/blocks/<block> | tail -1      # empty = unchanged
 for f in $(cd "$NEW/essential-blocks" && find assets -path '*<block>*' -type f); do
   cmp -s "$N1_WPORG/essential-blocks/$f" "$NEW/essential-blocks/$f" && echo "IDENTICAL $f" || echo "DIFFERS   $f"; done
+```
+
+## Block settings UI and editor/frontend parity  (axis 9 -- P0, run every release)
+
+**Status: first-run drafts.** The logic is tested against a mock of EB's `InspectorPanel` DOM, and the class
+names come from the shipped `controls.js` (`codebase-map.md`, "Editor settings UI"), but these have not yet been
+run in a live editor. Run each on one known block first and confirm the numbers by eye before trusting a whole
+sweep, then delete this note.
+
+**1. Expected tabs, from source.** `hideTabs` removes tabs on purpose, so the expected set is per block. Run for
+the release ref and for N-1, in both repos. Block names come from `block.json`: Pro names carry a `pro-` prefix
+that the folder name does not.
+
+```bash
+for R in "$FREE" "$PRO"; do
+  git -C "$R" grep -l "hideTabs" -- 'src/blocks/*' | sed -E 's#^src/blocks/([^/]+)/.*#\1#' | sort -u | while read -r d; do
+    printf '%s  %s\n' "$(jq -r .name "$R/src/blocks/$d/block.json")" \
+      "$(git -C "$R" grep -h "hideTabs" -- "src/blocks/$d" | grep -oE "hideTabs=\{\[[^]]*\]\}" | head -1)"
+  done
+done
+```
+
+Turn the output into the `HIDE` map the census reads, e.g. `{ 'essential-blocks/wrapper': ['styles'] }`. A `hideTabs`
+built from a variable will not match the literal grep: check by eye.
+
+**2. Inspector census.** Open the post editor with the all-blocks fixture (see "Build an all-blocks fixture page"),
+then open **Settings > Block** once so the sidebar shows the block inspector. Run on N-1 with `LABEL = 'N1'`
+during the upgrade-path setup, then after upgrading with `LABEL = 'N'`. Batch with `START` = 0, 15, 30 ... so one
+call stays under the tool timeout. It selects each EB block once, clicks each tab, opens panels **one at a time**
+(EB closes the others), and stores an inventory in `localStorage`. Blocks that are child-only or invalid at
+top level come back `invalid-skipped`: cover them through their parent. Finish starter steps first
+(`fixture-gotchas.md`). Blocks that are new in N are missing from the N-1 fixture: insert them on N before the
+run, and they appear under `addedByBlock` in the diff.
+
+```js
+async () => {
+  const LABEL = 'N', START = 0, COUNT = 15;   // LABEL: 'N1' on the previous release, 'N' on the target. Batch with START/COUNT.
+  const HIDE = {};   // fill from the hideTabs bash above, e.g. { 'essential-blocks/wrapper': ['styles'] }
+  const wait = ms => new Promise(r => setTimeout(r, ms));
+  const be = wp.data.select('core/block-editor'), bd = wp.data.dispatch('core/block-editor');
+  const seen = new Set();
+  const ids = be.getClientIdsWithDescendants().filter(id => {
+    const n = be.getBlockName(id);
+    if (!n.startsWith('essential-blocks/') || seen.has(n)) return false;
+    seen.add(n); return true;
+  });
+  const KEY = { general: 'General', styles: 'Style', advance: 'Advanced' };   // EB's class is "advance", not "advanced"
+  const leaf = els => els.filter(el => !els.some(o => o !== el && el.contains(o)));
+  const labelsIn = root => [...new Set(leaf([...root.querySelectorAll('label, legend, h3, h4, [class*="-title"], [class*="-label"]')])
+    .map(el => el.textContent.trim().replace(/\s+/g, ' ')).filter(Boolean))];
+  const controlsIn = root => root.querySelectorAll('input, select, textarea, button:not(.components-panel__body-toggle)').length;
+  const sig = {}, rows = [];
+  for (const id of ids.slice(START, START + COUNT)) {
+    const name = be.getBlockName(id), row = { name, flags: [] };
+    if (!be.isBlockValid(id)) { row.flags.push('invalid-skipped'); rows.push(row); continue; }
+    bd.selectBlock(id);
+    await wait(400);   // let the sidebar re-render for the new selection
+    let panel = null;
+    for (let i = 0; i < 20 && !panel; i++) { panel = document.querySelector('.eb-parent-tab-panel'); if (!panel) await wait(150); }
+    if (!panel) { row.flags.push(document.querySelector('.block-editor-block-inspector') ? 'no-eb-inspector' : 'sidebar-not-on-block-tab'); rows.push(row); continue; }
+    const tabs = [...panel.querySelectorAll('.eb-tab')].map(b => ({ key: ['general', 'styles', 'advance'].find(k => b.classList.contains(k)), text: b.textContent.trim() }));
+    const want = ['general', 'styles', 'advance'].filter(k => !(HIDE[name] || []).includes(k === 'advance' ? 'advanced' : k));
+    const got = tabs.map(t => t.key);
+    if (want.join() !== got.join()) row.flags.push('tabs-differ:want=' + want.join('/') + ' got=' + got.join('/'));
+    sig[name + ' > tabs'] = tabs.map(t => t.text).join(',');
+    row.panels = {};
+    for (const t of tabs) {
+      document.querySelector('.eb-parent-tab-panel .eb-tab.' + t.key).click();
+      await wait(250);
+      const bodySel = '.eb-parent-tab-panel .eb-tab-controls-' + t.key;
+      const tabBody = () => document.querySelector(bodySel);
+      if (!tabBody()) { row.flags.push('tab-body-missing:' + t.key); continue; }
+      const count = tabBody().querySelectorAll('.components-panel__body').length;
+      const loose = leaf([...tabBody().querySelectorAll('label, legend, h3, h4')].filter(el => !el.closest('.components-panel__body')));
+      loose.forEach(el => { sig[name + ' > ' + t.key + ' > (no panel) > ' + el.textContent.trim().replace(/\s+/g, ' ')] = 1; });
+      row.panels[t.key] = count;
+      if (!count && !loose.length) row.flags.push('empty-tab:' + t.key);
+      for (let k = 0; k < count; k++) {   // one panel at a time: EB's PanelBody closes the others when one opens
+        let body = tabBody().querySelectorAll('.components-panel__body')[k];
+        if (!body.classList.contains('is-opened')) { body.querySelector('.components-panel__body-toggle').click(); await wait(200); }
+        body = tabBody().querySelectorAll('.components-panel__body')[k];
+        const title = body.querySelector('.components-panel__body-title').textContent.trim();
+        labelsIn(body).filter(l => l !== title).forEach(l => { sig[name + ' > ' + t.key + ' > ' + title + ' > ' + l] = 1; });
+        sig[name + ' > ' + t.key + ' > ' + title + ' > #controls'] = controlsIn(body);
+      }
+    }
+    rows.push(row);
+  }
+  const store = 'ebqa-inv-' + LABEL;
+  const merged = START === 0 ? {} : JSON.parse(localStorage.getItem(store) || '{}');
+  localStorage.setItem(store, JSON.stringify(Object.assign(merged, sig)));
+  return { label: LABEL, blocksTotal: ids.length, doneThrough: Math.min(START + COUNT, ids.length), flagged: rows.filter(r => r.flags.length), clean: rows.filter(r => !r.flags.length).length };
+}
+```
+
+Flags: `tabs-differ` (compare with `HIDE`), `empty-tab:<key>`, `no-eb-inspector`, `sidebar-not-on-block-tab`,
+`invalid-skipped`, `tab-body-missing:<key>`. Every flag is a candidate, not a finding: check `known-noise.md` and N-1
+first.
+
+**3. Inventory diff, N-1 vs N.** Run after both snapshots exist.
+
+```js
+() => {
+  const get = l => JSON.parse(localStorage.getItem('ebqa-inv-' + l) || 'null');
+  const a = get('N1'), b = get('N');
+  if (!a || !b) return { error: 'snapshot missing', have: { N1: !!a, N: !!b } };
+  const blk = k => k.split(' > ')[0];
+  const tally = ks => ks.reduce((o, k) => (o[blk(k)] = (o[blk(k)] || 0) + 1, o), {});
+  const removed = Object.keys(a).filter(k => !(k in b));
+  const added = Object.keys(b).filter(k => !(k in a));
+  const changed = Object.keys(a).filter(k => k in b && a[k] !== b[k]).map(k => ({ k, was: a[k], now: b[k] }));
+  return { removedByBlock: tally(removed), addedByBlock: tally(added), changedByBlock: tally(changed.map(c => c.k)),
+           removed: removed.slice(0, 40), added: added.slice(0, 40), changed: changed.slice(0, 40) };
+}
+```
+
+Read `removedByBlock` first: a control that disappeared or moved is the finding. Also scan both snapshots for
+`undefined`, `[object Object]` and empty labels.
+
+**4. Editor vs frontend parity.** Use a page with real content (the axis 13 fixture), not the bare all-blocks page.
+Run the editor half in the post editor, then the frontend half on the published page of the **same origin**. Set
+the width you want in the editor first (Preview > Tablet / Mobile, or `wp.data.dispatch('core/editor').setDeviceType('Tablet')`
+where the store has it) and set the frontend viewport to the reported `canvasWidth`. Both halves ignore elements that
+belong to a nested block, so an outer Wrapper is not blamed for its children.
+
+```js
+() => {
+  const PROPS = ['display', 'flexDirection', 'flexWrap', 'justifyContent', 'alignItems', 'gap', 'textAlign', 'color', 'backgroundColor', 'backgroundImage',
+    'fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'lineHeight', 'letterSpacing', 'textTransform', 'opacity', 'boxShadow', 'visibility',
+    'borderTopWidth', 'borderTopStyle', 'borderTopColor', 'borderTopLeftRadius', 'borderTopRightRadius', 'borderBottomLeftRadius', 'borderBottomRightRadius',
+    'marginTop', 'marginBottom', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft'];   // no width/height/left/right margin: they depend on container width
+  const record = (root, win, owns) => {
+    const seen = {}, out = {};
+    [root, ...root.querySelectorAll('[class*="eb-"]')].forEach(el => {
+      const tok = [...el.classList].find(c => c.startsWith('eb-'));
+      if (!tok || !owns(el)) return;   // skip elements that belong to a nested block
+      const key = tok + '#' + (seen[tok] = (seen[tok] || 0) + 1), cs = win.getComputedStyle(el);
+      out[key] = Object.fromEntries(PROPS.map(p => [p, cs[p]]));
+    });
+    return out;
+  };
+  const be = wp.data.select('core/block-editor');
+  const frame = document.querySelector('iframe[name="editor-canvas"]');   // absent when the editor is not iframed
+  const doc = frame ? frame.contentDocument : document, win = doc.defaultView;
+  const byName = {}, missing = [];
+  be.getClientIdsWithDescendants().filter(id => be.getBlockName(id).startsWith('essential-blocks/')).forEach(id => {
+    const el = doc.querySelector('[data-block="' + id + '"]');
+    if (!el) { missing.push(be.getBlockName(id)); return; }
+    (byName[be.getBlockName(id)] = byName[be.getBlockName(id)] || []).push(record(el, win, e => e.closest('[data-block]') === el));
+  });
+  localStorage.setItem('ebqa-par-editor', JSON.stringify({ canvasWidth: doc.documentElement.clientWidth, blocks: byName }));
+  return { canvasWidth: doc.documentElement.clientWidth, iframed: !!frame, blockTypes: Object.keys(byName).length, notInCanvas: missing };
+}
+```
+
+```js
+async () => {
+  await new Promise(r => setTimeout(r, 2500));   // Interactivity API and sliders hydrate after load
+  const PROPS = ['display', 'flexDirection', 'flexWrap', 'justifyContent', 'alignItems', 'gap', 'textAlign', 'color', 'backgroundColor', 'backgroundImage',
+    'fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'lineHeight', 'letterSpacing', 'textTransform', 'opacity', 'boxShadow', 'visibility',
+    'borderTopWidth', 'borderTopStyle', 'borderTopColor', 'borderTopLeftRadius', 'borderTopRightRadius', 'borderBottomLeftRadius', 'borderBottomRightRadius',
+    'marginTop', 'marginBottom', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft'];
+  const record = (root, win, owns) => {
+    const seen = {}, out = {};
+    [root, ...root.querySelectorAll('[class*="eb-"]')].forEach(el => {
+      const tok = [...el.classList].find(c => c.startsWith('eb-'));
+      if (!tok || !owns(el)) return;
+      const key = tok + '#' + (seen[tok] = (seen[tok] || 0) + 1), cs = win.getComputedStyle(el);
+      out[key] = Object.fromEntries(PROPS.map(p => [p, cs[p]]));
+    });
+    return out;
+  };
+  const saved = JSON.parse(localStorage.getItem('ebqa-par-editor') || 'null');
+  if (!saved) return { error: 'run parity-editor first, on the same origin' };
+  const norm = v => String(v).replace(/url\([^)]*\)/g, 'url()');
+  const issues = {}; let clean = 0;
+  for (const [name, editorInstances] of Object.entries(saved.blocks)) {
+    const roots = [...document.querySelectorAll('.wp-block-' + name.replace('/', '-'))];
+    const rep = { editorCount: editorInstances.length, frontendCount: roots.length, onlyEditor: 0, onlyFrontend: 0, diffs: [] };
+    editorInstances.forEach((ed, i) => {
+      if (!roots[i]) return;
+      const fe = record(roots[i], window, e => e.closest('[class*="wp-block-essential-blocks-"]') === roots[i]);
+      Object.keys(ed).forEach(k => { if (!(k in fe)) rep.onlyEditor++; });
+      Object.keys(fe).forEach(k => { if (!(k in ed)) rep.onlyFrontend++; });
+      Object.keys(ed).filter(k => k in fe).forEach(k => Object.keys(ed[k]).forEach(p => {
+        if (norm(ed[k][p]) !== norm(fe[k][p])) rep.diffs.push({ instance: i, el: k, prop: p, editor: ed[k][p], frontend: fe[k][p] });
+      }));
+    });
+    if (rep.editorCount !== rep.frontendCount || rep.onlyEditor || rep.onlyFrontend || rep.diffs.length) { rep.diffCount = rep.diffs.length; rep.diffs = rep.diffs.slice(0, 6); issues[name] = rep; } else clean++;
+  }
+  return { editorCanvasWidth: saved.canvasWidth, frontendViewportWidth: document.documentElement.clientWidth, clean, issues };
+}
+```
+
+Output: per block, `editorCount` vs `frontendCount` (a mismatch is either a block that fails to render on the
+frontend or a class-name change: look), `onlyEditor` / `onlyFrontend` element counts, and the first property
+differences. Expected differences are in `known-noise.md`. Then attribute each real difference against N-1 (the
+axis 13 procedure) and take a side-by-side screenshot as evidence.
+
+**5. Cleanup.** The snapshots live in the browser profile for that site's origin, not on the site:
+
+```js
+['ebqa-inv-N1', 'ebqa-inv-N', 'ebqa-par-editor'].forEach(k => localStorage.removeItem(k));
 ```
 
 ## Media Library modal

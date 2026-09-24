@@ -162,6 +162,24 @@ inline `essential-blocks-global-styles` (`Core/Scripts.php:138`), `dashicons` (`
 `blocks-localize` (`:572`). The repo skill `verify-baseline-assets` enforces this; regression class
 is "an asset starts loading unconditionally with its toggle off".
 
+## Editor settings UI (InspectorPanel)
+
+Every EB block's sidebar is one `InspectorPanel` from the controls submodule (`InspectorPanel.General`,
+`.Style`, `.Advanced`, `.PanelBody`). Verified against the shipped `assets/admin/controls/controls.js`
+(6.4.4). **Re-verify the selectors if the controls submodule pointer changed this release.**
+
+| Thing | Fact |
+|---|---|
+| Container | `.eb-panel-control` > `.eb-parent-tab-panel` |
+| Tab buttons | `.eb-tab.general` "General", `.eb-tab.styles` "Style", `.eb-tab.advance` "Advanced". The class is `advance`, not `advanced`; the label is "Style", not "Styles" |
+| Tab bodies | `.eb-tab-controls-general`, `.eb-tab-controls-styles`, `.eb-tab-controls-advance`. Only the active tab is in the DOM |
+| Hidden tabs | `hideTabs={['styles']}` (values `'general'`, `'styles'`, `'advanced'`) removes a tab **on purpose**. Blocks that do it: Free Wrapper, Row, Column, Flex Container, Shape Divider (Style); Pro Animated Wrapper, Form Multistep Wrapper, Form reCAPTCHA, Stacked Cards (Style), Mega Menu Item (Style and Advanced). List as of the Aug 2026 mirror heads; regenerate it, never trust it (`probes.md`) |
+| Advanced tab | Always renders the shared advanced controls (margin, padding, background, border ... driven by each block's `advancedControlProps`), then any block-specific `InspectorPanel.Advanced` content |
+| Panels | WordPress `PanelBody` (`.components-panel__body`, `.is-opened`). **Children are not in the DOM while a panel is closed** |
+| Accordion behaviour | Opening a panel writes a shared `panelName` to the `essential-blocks` store and every other panel closes. Read one panel at a time |
+| Remembered tab | The last tab is kept per block in the `essential-blocks` store, so a block can reopen on Style or Advanced, not General |
+| Responsive controls | Desktop stores the bare attribute; Tablet stores `TAB<attr>`, Mobile stores `MOB<attr>`. A reset control restores the schema default |
+
 ## Version-bump surface — 6 files
 
 `essential-blocks.php` · `includes/Plugin.php` · `readme.txt` · `package.json` ·

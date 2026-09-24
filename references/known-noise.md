@@ -72,6 +72,23 @@ test it, mention it, footnote it, or count it in coverage, for that ticket. This
 Video Overlay specifically; it is *not* a blanket exemption for Pro-deactivation validation errors
 elsewhere, which remain a legitimate axis.
 
+## Settings UI and editor/frontend parity: expected differences  (axis 9)
+
+Not findings, unless the symptom differs from what is described:
+
+- **Editor-only chrome:** starter choosers ("Choose" / "Start Blank"), block placeholders, selection outlines,
+  the inserter appender, and any `eb-` element that only exists to draw editor UI. They show up as
+  `onlyEditor` in the parity probe.
+- **Entrance and scroll animations, sliders and Interactivity API blocks** initialise only on the frontend, and
+  need about a second to settle. Compare after a poll-retry, never on the first immediate read.
+- **Container width differs.** The editor canvas width is not the theme's content width. Compare properties that
+  attributes drive (colour, spacing, type, radius, display), not raw widths; match viewport to canvas width for
+  media queries.
+- **`borderTopColor` follows `color`** when no border colour is set, so a text colour difference also reports as a
+  border colour difference. Read the first property, not the echo.
+- **Hover and focus styles** cannot be held across tool calls: report as unverified.
+- **`hideTabs` blocks have no Style tab by design** (Wrapper, Row, Column and others). Check source before filing.
+
 ## Site-state confounders
 
 **Stale content from an unmerged branch masquerades as a regression.** Test pages authored during an

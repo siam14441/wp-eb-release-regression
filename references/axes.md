@@ -94,6 +94,65 @@ A whole feature once died silently here with **zero console errors** across five
 - Zero new console errors on editor, FSE and frontend.
 - No failed network requests on a normal page load.
 
+### 9. Block settings UI and editor/frontend parity
+Standing rule, not diff-gated. The sidebar and the canvas are the surface authors actually touch. Saved
+content can validate perfectly while a release ships a settings tab that vanished, a control that moved or
+stopped working, or a canvas that no longer looks like the page it publishes. The author sees one thing and
+publishes another, and nothing errors. Selectors and the `hideTabs` rule are in `codebase-map.md`
+("Editor settings UI"); runnable snippets are in `probes.md` ("Block settings UI and editor/frontend parity").
+
+**Depth, stated in the ledger.** Parts A and C run on **every** registered block (Free and Pro, 94/94) and are
+programmatic. Part B is deep -- every control on every tab -- for (1) each block whose `inspector.js`,
+`edit.js`, `save.js`, styles or frontend script changed in the diff, and (2) the axis 13 responsive fixture
+blocks, every release. Record the depth actually reached; "94/94 structure, deep on N blocks" is a finished
+row, "swept" alone is not.
+
+**A. Inspector structure -- every block, N-1 first and then N.**
+- **Tab set.** Expected = General + Style + Advanced minus whatever the block's `hideTabs` removes. Derive it
+  from source at the release ref and from N-1; never assume all three. A missing, extra or mislabeled tab is a
+  finding. Flagging a missing Style tab on Wrapper, Row or Column without checking `hideTabs` is a false alarm.
+- **No empty tab.** Every visible tab has at least one panel or control. An empty tab that is also empty on N-1
+  is pre-existing.
+- **Inventory diff N-1 vs N.** Capture every panel title and control label per tab. A control that disappeared,
+  moved to another tab or panel, or was renamed is a finding, unless the diff shows a deliberate removal (then
+  INFO, per the calibration in `SKILL.md`).
+- **Sane strings.** Scan the inventory for `undefined`, `[object Object]`, empty labels and raw slugs or keys.
+- **Clean console.** Zero console errors while selecting each block and switching each tab (axis 7 gate).
+- **Pro-gated controls.** Where a Free block shows a control marked Pro, it renders its locked or upsell state
+  with Pro inactive, and selecting the block logs nothing.
+- **Sidebar layout.** Labels not clipped, controls not overlapping, nothing running off the sidebar. Numbers do
+  not see this; look at a screenshot of the tab.
+- **Finish each block's starter step first** (`fixture-gotchas.md`), or a bare inspector is a fixture
+  artifact, not a finding.
+
+**B. Controls do what they say -- deep set only.**
+- Drive the **real control** as a user would: native `<select>` = set value and dispatch `change`; toggles and
+  buttons = native `.click()` inside `browser_evaluate`. Setting the attribute directly tests the render and
+  skips the control.
+- After each change assert three things: the intended attribute changed and only that one
+  (`getBlockAttributes`); the canvas updated (computed style); after save, reload and view, the frontend
+  reflects it.
+- **Responsive controls.** A Tablet edit is stored as `TAB<attr>` and a Mobile edit as `MOB<attr>`; the bare
+  name is Desktop. Confirm the edit lands in the right one, Desktop is untouched, and the frontend at 768 or 375
+  shows it (axis 13 widths).
+- **Conditional controls.** Flip each master toggle or select and confirm dependent controls appear and
+  disappear, in both directions, leaving none orphaned on screen.
+- **Reset.** Where a control has a reset, it restores the attribute's schema default.
+- Controls that do nothing until an unrelated toggle is on, and labels that do not match behaviour, are
+  usability findings (`test-types.md`).
+
+**C. Editor and frontend match.** For a control in scope, editor behaviour must match frontend behaviour. A
+control that works in one and not the other is a bug -- unless its own label says it is frontend-only.
+- Compare the canvas with the published page for the same block and attributes: presence (an element on one side
+  only), content (text, icons, images, links, item counts) and computed style, at matching widths. The editor's
+  Preview device sets the canvas width; use the same width for the frontend viewport.
+- Run it on every block at default output and again on the deep set after the part B edits. Use real content
+  (the axis 13 fixture), not the bare all-blocks page: several blocks serialize to nothing at defaults.
+- **Attribute every difference against N-1** before classifying it (axis 13 procedure). Identical on N-1 =
+  pre-existing.
+- Numbers pick the candidates; a side-by-side screenshot decides. Expected differences that are not findings
+  (editor-only chrome, entrance animations, hover-only states, theme content width) are in `known-noise.md`.
+
 ### 11. FSE / Site Editor -- ALWAYS RUN, never deferred
 Standing instruction. Not diff-gated. Proven procedure (snippets in `probes.md`):
 
@@ -201,10 +260,8 @@ Apply `wp-eb-test`'s diff-driven method once per release-scope card: map each ch
 testable claim and test that claim. This is what answers "did you retest all the things from this
 release scope?"
 
-### 9. Editor/frontend parity
-Standing rule, not diff-gated. For every control in scope, editor behaviour must match frontend
-behaviour. A control that works in one and not the other is a bug — unless its own label says it is
-frontend-only.
+### 9. Block settings UI and editor/frontend parity
+Promoted to P0 -- see above. Run every release.
 
 ### 10. Public hook and filter contract
 ~35 public hooks form the extension API. Assert names, arity and payload **shape** are unchanged —
@@ -244,7 +301,9 @@ blocks that were *already mounted* rather than only for new ones.
 ### 17. Accessibility and UI/UX
 Keyboard reachability and focus return; WCAG 2.5.8 24x24 minimum target size (measured with
 `getBoundingClientRect()`, not judged by eye); contrast including non-text UI at 3:1; screen-reader
-announcement of state changes. The user asks for "ui ux issues if any" most releases.
+announcement of state changes. The user asks for "ui ux issues if any" most releases: the structural half of
+that (settings tabs, panels, controls, editor vs frontend) is axis 9; this axis is accessibility and interaction
+quality.
 
 ### 18. Performance and front-end cost
 Asset weight and count on a representative page; query counts; cold vs warm cache timing; whether a
@@ -276,6 +335,7 @@ anything you did not create.
 |---|---|---|---|
 | block-integrity | Free | swept | 69/69 serialize+reparse valid; 0 save.js changed |
 | block-integrity | Pro | swept | 25/25 valid; wrapper dir ships no block.json |
+| settings-ui-parity | Free | swept | 65/65 inspectors: tab sets match source `hideTabs`, 0 controls removed vs N-1; deep control + parity pass on 4 changed blocks and the axis 13 fixture set |
 | upgrade-path | Free+Pro | swept | 6.4.2 -> 6.4.3 in place, 102-block page 0 invalid |
 | i18n | Free | deferred — environment | WPML not on this site; the WPML site in `references/environment.md` could cover it |
 | lifecycle | Pro | not applicable | uninstall.php unchanged this release |

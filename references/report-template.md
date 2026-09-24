@@ -109,11 +109,13 @@ confirmed present or absent. If PARTIAL, state exactly what would move it to PAS
 
 ## Axis Coverage Ledger
 
-<!-- Axes 11 (FSE), 13 (Responsive) and 14 (Compatibility) must show `swept`. Never `deferred`, never "not touched by diff", never "environment". -->
+<!-- Axes 11 (FSE), 13 (Responsive) and 14 (Compatibility) must show `swept`. Never `deferred`, never "not touched by diff", never "environment".
+     Axis 9 (Block settings UI + editor/frontend parity) is P0: show the depth reached, e.g. "structure 94/94, deep on 6 blocks + fixture set". -->
 
 | Axis | Component | Disposition | Evidence / reason |
 |---|---|---|---|
 | {{block-integrity}} | {{Free}} | {{swept}} | {{69/69 valid; 0 save.js changed}} |
+| {{settings-ui-parity}} | {{Free}} | {{swept}} | {{n/n inspectors match expected tabs; 0 controls removed vs N-1; deep on n blocks}} |
 | {{i18n}} | {{Free}} | {{deferred — environment}} | {{WPML not on this site; the WPML site in `references/environment.md` could cover it}} |
 
 {{Tier note if time-boxed: "P2 axes were not swept — run was time-boxed to Nh."}}

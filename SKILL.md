@@ -5,7 +5,8 @@ description: >
   (free, pro, and the controls submodule). Sweeps every coverage axis -- block/content integrity
   and "Attempt Block Recovery" risk, upgrade paths from the previous release, build and shipped-ZIP
   identity, security with a real non-admin capability matrix, free/pro interplay, asset dependency
-  graph, FSE, responsive, compatibility, integrations, accessibility, performance, i18n and
+  graph, block settings UI (General/Style/Advanced tabs, panels, controls) and editor-vs-frontend
+  parity, FSE, responsive, compatibility, integrations, accessibility, performance, i18n and
   uninstall -- then reasons to a ship / no-ship verdict and writes a release report.
   Use this whenever the target is a RELEASE rather than a single ticket: "release regression test",
   "full regression before release", "deep test the release zips", "is the new release ship-ready",
@@ -112,8 +113,10 @@ and every release-scope card to the tests that will cover it. This mapping is wh
 **3. Upgrade path.**
 The axis prior release sweeps never actually ran. On the one site: install N-1, author real content
 with it, then upgrade in place and verify nothing broke -- block validity, settings and options,
-license state, custom tables. Then the version-skew cases, including old-Free + new-Pro, which is a
-documented latent fatal. Clean install is the control, not the test.
+license state, custom tables. While the N-1 content is being authored, also capture the settings-UI
+inventory (axis 9, `references/probes.md`) so the target can be diffed against it. Then the version-skew
+cases, including old-Free + new-Pro, which is a documented latent fatal. Clean install is the control,
+not the test.
 
 **4. Parallel axis sweeps.**
 Dispatch code-analyzable axes to subagents (security static analysis, build identity, registry
@@ -121,8 +124,9 @@ diffing, hook contract, i18n, performance statics, spec-vs-code). Each returns f
 clear the bar. **You keep the browser** -- subagents never drive it, and there is only ever one.
 
 **5. Live verification.**
-Fixture pages, block harnesses, editor -> save -> reload -> frontend, FSE, responsive widths, the
-capability matrix as each created non-admin user, compatibility toggles. **FSE (Site Editor, patterns,
+Fixture pages, block harnesses, editor -> save -> reload -> frontend, **block settings UI** (every block's
+General / Style / Advanced tabs, panels and controls, and canvas vs published page -- axis 9), FSE, responsive
+widths, the capability matrix as each created non-admin user, compatibility toggles. **FSE (Site Editor, patterns,
 blocks in a template and a template part), responsive (375 / 768 / 1440, with screenshots) and WooCommerce + Astra
 compatibility (installed from wp.org if the site lacks them, then removed) are part of every run** -- `references/axes.md` 11, 13 and 14 have the procedure. `references/probes.md` has
 the proven snippets; `references/fixture-gotchas.md` has the traps that silently produce empty blocks
@@ -178,7 +182,7 @@ If the self-challenge changes the call, change the call.
 
 - `✅ PASS` -- ship. No unwaived finding you believe will hurt a real user on upgrade, and coverage
   good enough to say that honestly.
-- `⚠️ PARTIAL` -- ship-ready with named caveats, or blockers explicitly waived, or a P0 axis unswept (FSE, Responsive and Compatibility count as P0: leaving any one unswept caps the verdict at PARTIAL).
+- `⚠️ PARTIAL` -- ship-ready with named caveats, or blockers explicitly waived, or a P0 axis unswept (Block settings UI / editor-frontend parity, FSE, Responsive and Compatibility count as P0: leaving any one unswept caps the verdict at PARTIAL).
   State exactly what would move it to PASS.
 - `❌ FAIL` -- at least one finding you judge will hurt real users.
 
@@ -234,6 +238,12 @@ If the self-challenge changes the call, change the call.
   anonymous visitors; compare against WooCommerce's own `[products]` shortcode instead.
 - Setting an attribute programmatically on a block whose UI control is a `<select>` or toggle, then reporting the
   empty result. Drive the real control (value + `change` event), as a user would.
+- Expecting all three settings tabs on every block. `hideTabs` removes Style (and on Mega Menu Item, Advanced)
+  on purpose: read source before filing a missing tab.
+- Judging the settings UI from the General tab alone, or from panels that happened to be open. Panel children are
+  not in the DOM while closed, and opening one closes the others: walk every panel of every tab.
+- Calling a block fine because the editor looks right, or because the frontend looks right. Compare the two, at
+  the same width, against N-1.
 
 ## House rules
 
@@ -263,7 +273,7 @@ If the self-challenge changes the call, change the call.
 | `references/axes.md` | Phase 0 and throughout -- the 20 axes and their concrete checks |
 | `references/test-types.md` | Before the verdict -- completeness backstop across testing types |
 | `references/engines.md` | When a sweep is not finding anything, or to go deeper than surface checks |
-| `references/probes.md` | Phase 5 -- proven, copy-pasteable verification snippets, incl. Site Editor, patterns, template authoring and the responsive sweep |
+| `references/probes.md` | Phase 5 -- proven, copy-pasteable verification snippets, incl. Site Editor, patterns, template authoring, the responsive sweep and the settings-UI census |
 | `references/fixture-gotchas.md` | Any time you build a fixture, before trusting an empty result |
 | `references/report-template.md` | Phase 6 -- report skeleton and section order |
 | `references/state-template.md` | Phase 0 -- the `_STATE` resume file |

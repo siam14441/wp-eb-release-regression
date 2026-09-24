@@ -13,7 +13,8 @@ actually ship, and reasons to a ship / no-ship verdict.
 
 Block and content integrity ("Attempt Block Recovery" risk), upgrade paths from the previous release,
 build and shipped-ZIP identity, security with a real non-admin capability matrix, Free/Pro interplay,
-asset dependency graph, FSE, responsive (375 / 768 / 1440), compatibility (WooCommerce, Astra, page
+asset dependency graph, block settings UI (General / Style / Advanced tabs, panels, controls) and
+editor-vs-frontend parity, FSE, responsive (375 / 768 / 1440), compatibility (WooCommerce, Astra, page
 builders), integrations, accessibility, performance, i18n and uninstall. The verdict is a judgment
 weighed from evidence — not a blocker counter.
 
@@ -28,7 +29,7 @@ references/
   axes.md                     the 20 coverage axes and their concrete checks
   test-types.md               completeness backstop across testing types
   engines.md                  ways to go deeper when a sweep finds nothing
-  probes.md                   proven, copy-pasteable verification snippets
+  probes.md                   proven, copy-pasteable verification snippets, incl. the settings-UI census
   fixture-gotchas.md          traps that produce empty blocks and false passes
   report-template.md          report skeleton and section order
   state-template.md           the _STATE resume file for long runs

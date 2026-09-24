@@ -16,6 +16,7 @@ row; silence is not.
 | Integration | Free + Pro + controls together; WooCommerce, Templately, theme | |
 | System / end-to-end | Author a page, save, view it, edit it again, upgrade, view again | |
 | **Regression** | Axes 1, 8, 9 — existing content and untouched features still work | |
+| **Settings UI / editor-frontend parity** | Axis 9 — every block's General / Style / Advanced tabs, panels and controls present and effective; canvas matches the published page | |
 | Negative / boundary | Shape probing, empty states, zero/one/many, malformed input | |
 | Data / CRUD integrity | Block attributes survive save->reload; form entries; options | |
 | **Install / upgrade / uninstall** | Axis 2 and axis 20 — the paths real users take | |
@@ -29,7 +30,7 @@ row; silence is not.
 | Performance / front-end cost | Axis 18 — asset weight, query count, cold vs warm | |
 | Load / scale | Many blocks on one page; many feed instances; large queries | |
 | **Security** | Axis 4, including the real non-admin capability matrix | |
-| Usability | Can an author configure this without docs? Are labels honest? | |
+| Usability | Can an author configure this without docs? Are labels honest? Structure and effect of the settings UI are axis 9 | |
 | Accessibility | Axis 17 — keyboard, target size, contrast, screen reader | |
 | Cross-browser / device | Widths at minimum; note explicitly if only one browser was used | |
 | Compatibility | Axis 14 — themes, plugins, PHP and WP versions | |
@@ -49,6 +50,10 @@ widths tested and state plainly that other engines were not covered rather than 
 **Usability.** Configure a block the way a first-time author would, without reading source. Controls
 that do nothing until an unrelated toggle is on, labels that do not match behaviour, and defaults that
 produce an empty block are all findings.
+
+**Settings UI and editor/frontend parity.** The one type that is both functional and visual. A whole
+block can validate, save and render while its Style tab is missing or its canvas differs from the page.
+If axis 9 was sampled instead of swept, write the depth into this row.
 
 **Exploratory.** Reserve real time for it, unscripted, at the end when you know the system. Several of
 the strongest historical findings came from noticing something odd rather than from a checklist row.

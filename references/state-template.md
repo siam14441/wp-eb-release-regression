@@ -16,7 +16,7 @@ If a session resets, read this first.
 
 | Item | Value |
 |---|---|
-| Site | {{url}} (admin `{{user}}` / `{{pass}}`, from `{{source}}`) |
+| Site | {{url}} (admin `{{user}}`; credentials from `{{source}}` -- never write the password here) |
 | WP / PHP / theme | {{...}} |
 | Companion plugins | {{WooCommerce x, Templately y, WPML z, ...}} |
 | Free installed | {{version}} — {{ZIP / built from `<branch>` @ `<sha>`}} |
@@ -55,7 +55,7 @@ Release descends from: {{staging / master / other}} — verified {{how}}.
 - [ ] 6 Asset dependency graph
 - [ ] 7 Stability
 - [ ] 8 Per-card functional
-- [ ] 9 Editor/frontend parity
+- [ ] 9 Block settings UI + editor/frontend parity  (P0 -- every release; record depth: structure n/94, deep on n blocks)
 - [ ] 10 Hook contract
 - [ ] 11 FSE  (ALWAYS RUN -- never defer)
 - [ ] 12 Content-import path
