@@ -1,0 +1,11 @@
+.DS_Store
+*.log
+# Never commit credentials, per-machine config, or generated reports
+defaults.json
+user.txt
+.env
+.env.*
+*.zip
+qa-report-*.md
+_STATE*
+screenshots/
